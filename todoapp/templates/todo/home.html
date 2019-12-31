@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% block content %}
+
+
+<div class='container'>
+    {% for message in messages %}
+        <div class='alert alert-{{message.tags}} alert-dismissible' role='alert'>
+            <button type='button' class='close' data-dismiss='alert' aria-label='Close'>
+                <span aria-hidden='true'>&times;</span>
+            </button>
+            {{message}}
+        </div>
+    {% endfor %}
+    <h1>To-Do App</h1><br>
+    <div class='row'>
+        <div class='col-4'>
+            <h5>Add Todo</h5><br>
+            <form id="addForm" action="{% url 'create' %}">
+                {% csrf_token %}
+                {{create_form.text}}<br>
+                <input class='btn btn-success form-control' type='submit' value='Add'>
+            </form>
+        </div>
+        <div class='col-8'>
+            <h5>Todo List</h5>
+            <table id='todoTable' class='table table-striped'>
+                <thead class="thead-dark">
+                    <tr>
+                        
+                        <th>To-Do</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                {% for todo in todo_list %}
+                    <tr id='todo-{{todo.id}}'>
+                        <td class='todoText' name='name'>{% if todo.completed == True %}<s>{{todo.text}}</s>{% else %}{{todo.text}}{% endif %} </td>
+                        <td><a class='btn btn-primary form-control text-light' data-toggle="modal" data-target="#exampleModalCenter" onClick='editText({{todo.id}})'>EDIT</a></td>
+                        <td><a class='btn btn-danger form-control text-light' onClick="deleteText({{todo.id}})">DELETE</a></td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</div>
+<!-- Modal -->
+<div class="modal fade" id="exampleModalCenter" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLongTitle">Edit To-Do</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        <div class="modal-body">
+            <form id='updateText' action='{% url "update" %}'>
+                {% csrf_token %}
+                <input class="form-control" id="form-id" type="hidden" name="formId"/>
+                <input type='text' class='form-control' id='form-text' name='formText'><br>
+                <input class='btn btn-success form-control' type='submit' value='Edit'>
+            </form>
+        </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block javascript %}
+<script>
+    function deleteText(id) {
+      $.ajax({
+          url: '{% url "delete" %}',
+          data: {
+              'id': id,
+          },
+          dataType: 'json',
+          success: function (data) {
+              if (data.deleted) {
+                $("#todoTable #todo-" + id).remove();
+              }
+          }
+      });
+    }
+    
+    $("form#addForm").submit(function() {
+    var textInput = $('input[name="text"]').val().trim();;
+    if (textInput) {
+        // Create Ajax Call
+        $.ajax({
+            url: '{% url "create" %}',
+            data: {
+                'text': textInput,
+            },
+            dataType: 'json',
+            success: function (data) {
+                if (data.info) {
+                  appendToTable(data.info);
+                }
+            }
+        });
+      } else {
+        alert("All fields must have a valid value.");
+    }
+    $('form#addForm').trigger("reset");
+    return false;
+});
+function appendToTable(info) {
+  $("#todoTable > tbody").prepend(`
+        <tr id="todo-${info.id}">
+            <td class='todoText' name='name'>${info.text}</td>
+            <td><a class='btn btn-primary form-control text-light' data-toggle="modal" data-target="#exampleModalCenter" onClick="editText(${info.id})" %}'>EDIT</a></td>
+            <td>
+                <button class="btn btn-danger form-control text-light" onClick="deleteText(${info.id})">DELETE</button>
+            </td>
+        </tr>
+    `);
+}
+
+
+
+$("form#updateText").submit(function() {
+    var idInput = $('input[name="formId"]').val().trim();
+    var textInput = $('input[name="formText"]').val().trim();
+    if (textInput) {
+        // Create Ajax Call
+        $.ajax({
+            url: '{% url "update" %}',
+            data: {
+                'id': idInput,
+                'text': textInput,
+            },
+            dataType: 'json',
+            success: function (data) {
+                if (data.info) {
+                  updateToTableEdit(data.info);
+                }
+            }
+        });
+       } else {
+        alert("All fields must have a valid value.");
+    }
+    $('form#updateText').trigger("reset");
+    $('#exampleModalCenter').modal('hide');
+    return false;
+});
+
+// Update Django Ajax Call
+function editText(id) {
+  if (id) {
+    tr_id = "#todo-" + id;
+    text = $(tr_id).find(".todoText").text();
+    $('#form-id').val(id);
+    $('#form-text').val(text);
+  }
+}
+function updateToTableEdit(info){
+    $("#todoTable #todo-" + info.id).children(".todoText").each(function() {
+        var attr = $(this).attr("name");
+        if (attr == "name") {
+            $(this).text(info.text);
+        }
+      });
+}
+
+</script>
+{% endblock javascript %}
